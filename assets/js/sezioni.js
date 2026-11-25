@@ -77,7 +77,7 @@
         { t: 'titolo', testo: 'Fonti e crediti' },
         { t: 'sotto', testo: 'A cura di' },
         { t: 'p', size: 44, testo: '**prof. Daniele Palma Esposito**' },
-        { t: 'p', size: 34, testo: 'Tutta l\'esperienza del libro 3D «Astronomia nautica» è a cura del prof. Daniele Palma Esposito: idea, testi, esperienze, esercizi e verifiche.' },
+        { t: 'p', size: 34, testo: 'Tutta l\'esperienza del libro 3D «Astronomia nautica» è a cura del prof. Daniele Palma Esposito: idea, testi, esperienze, esercizi e verifiche. Suoi anche i modelli 3D del sestante e della bussola nella sospensione cardanica.' },
         { t: 'sotto', testo: 'Le fonti' },
         { t: 'p', size: 34, testo: '**Libro di testo**: R. Antola, *Fondamenti di Navigazione e Meteorologia nautica*, vol. 2, Simone, 2016; dal vol. 1 la deviazione della bussola. I rimandi come «p. 97» sono le pagine stampate del vol. 2.' },
         { t: 'p', size: 34, testo: '**Testo di confronto**: A. Vecchia Formisano, *Captain\'s Handbook*, 2ª ed., cap. 5, «Navigazione astronomica – calcolo dell\'errore giro». Definizioni, formule e procedure sono state controllate anche qui.' },

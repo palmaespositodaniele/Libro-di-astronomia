@@ -166,7 +166,9 @@
   const vr = () => Motore.presente();
   const scala = () => (vr() ? [{ t: 'bottoni', h: 80, size: 34, lista: [{ id: 'vr:scala', testo: Motore.scalaVera() ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []);
   const finestra = (h, vero, mini) => ({ t: 'zona', id: 'finestra', h, testo: !vr() ? '' : Motore.scalaVera() ? vero : mini });
-  const posti = () => ({ t: 'bottoni', h: 80, size: 30, lista: POSTI.map((x) => ({ id: `posto:${x.id}`, testo: x.testo, on: postoAttuale() === x })) });
+  // Sei bottoni in una fila sono troppo stretti per i nomi lunghi: due file da tre
+  const dueFile = (b) => { const m = Math.ceil(b.lista.length / 2); return b.lista.length > 4 ? [{ ...b, lista: b.lista.slice(0, m) }, { ...b, lista: b.lista.slice(m) }] : [b]; };
+  const posti = () => dueFile({ t: 'bottoni', h: 80, size: 30, lista: POSTI.map((x) => ({ id: `posto:${x.id}`, testo: x.testo, on: postoAttuale() === x })) });
   function riquadro() {
     const s = sole(); const posto = postoAttuale();
     const fi = posto && posto.id === 'mistero' ? 'φ ?' : `φ ${Cielo.ang(Cielo.stato.lat, { segno: 'NS' })}`;
@@ -208,7 +210,7 @@
         passo: 2, mondo, azione: comandi, richiede: lez.fatto.prevedi, avviso: 'Se salti, niente stella.',
         sx: [
           ...(p ? [{ t: 'nota', testo: `La tua previsione: ${RISPOSTE[p]}.` }] : []),
-          posti(),
+          ...posti(),
           { t: 'bottoni', h: 80, size: 32, lista: [{ id: 'dieci-', testo: '−10 min' }, { id: 'min-', testo: '−1 min' }, { id: 'min+', testo: '+1 min' }, { id: 'dieci+', testo: '+10 min' }] },
           riquadro(),
           ...(pr.esito ? [{ t: 'esito', ...pr.esito }] : []),

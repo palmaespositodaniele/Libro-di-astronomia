@@ -8,6 +8,11 @@ assets/fonts/architects-*      Architects Daughter    SIL Open Font License 1.1
 assets/vendor/astronomy.browser.min.js   Astronomy Engine 2.1.19   MIT License
 assets/dati/stelle.js          Bright Star Catalogue, 5th Revised Ed.   dati pubblici (vedi sotto)
 
+Non di terze parti: assets/modelli/sestante.glb, modello 3D del sestante
+realizzato dal prof. Daniele Palma Esposito (copia alleggerita per il sito);
+assets/modelli/sospensione_cardanica.glb, modello 3D della bussola magnetica nella
+sospensione cardanica, realizzato dal prof. Daniele Palma Esposito.
+
 
 Astronomy Engine
 ----------------

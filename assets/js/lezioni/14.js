@@ -2,7 +2,8 @@
    nautica» vol. 2, cap. 7: correzione gyro e variazione (7.1, 7.2, p. 105), quando osservare e la formula 7.3 con
    l'esempio di Marte (p. 106), amplitudine marina 7.5 e 7.6 con l'esempio del 18/04/2015 (p. 107), tavola 17
    (p. 108); esercizi 5–10 a p. 110. Dal vol. 1, p. 144: la deviazione cambia con la prora. Il libro non dà i
-   risultati degli esercizi: li calcola il motore e la pagina lo dice. Regole in design.md */
+   risultati degli esercizi: li calcola il motore e la pagina lo dice. La bussola magnetica nella sospensione
+   cardanica (modello 3D del docente) con il vol. 1, pp. 155–156. Regole in design.md */
 (function () {
   const N = 14;
   const RAD = Math.PI / 180;
@@ -81,17 +82,55 @@
   const H0 = -55 / 60; // centro del Sole quando il lembo superiore tocca l'orizzonte (p. 107)
   const pr = { caso: null, esito: null, pronto: false };
   const sole = () => Cielo.vistoDallaNave('Sole');
+  const gira = (x) => ((((x + 180) % 360) + 360) % 360) - 180;
   function vai(c) {
     pr.caso = c;
     Cielo.imposta({ lat: c.lat, lon: c.lon, luogo: '', corre: false });
     const t = Cielo.istanteSole(H0, c.verso, Date.parse(c.da));
-    if (t) Cielo.imposta({ data: t - 12 * 60e3 + 17e3 });
+    if (t) {
+      // La variazione della bussola di bordo, dalle letture del libro: V = a_v − a_b (7.2), con a_v del motore
+      Cielo.imposta({ data: t }); pr.V = gira(sole().a - c.ab);
+      Cielo.imposta({ data: t - 12 * 60e3 + 17e3 });
+    }
   }
-  const ponte = Scene.ponte({ guarda: 90, phi: 1.45 });
+
+  /* La bussola magnetica nella sospensione cardanica (modello del docente, bussola3d.js): davanti a te, verso
+     la prua. La controplancia gira con la prora vera del caso; la rosa è girata della variazione V */
+  const bordo = { bussola: null, chiesto: false, ponte: null, fermo: false, chiave: '' };
+  const bussola = new THREE.Group();
+  const POSTO = { d: 0.55, giu: 0.4 }; // davanti agli occhi e sotto, in metri: si vede la rosa dall'alto
+  function caricaBussola() {
+    if (bordo.chiesto) return;
+    bordo.chiesto = true;
+    Bussola3D.carica().then((nuovo) => { bordo.bussola = nuovo(); bussola.add(bordo.bussola.g); bordo.chiave = ''; Motore.sporco(); }).catch(() => {});
+  }
+  function posaBordo() {
+    const c = pr.caso || CASI[0]; const k = `${c.id}|${!!bordo.bussola}`;
+    if (k === bordo.chiave) return false;
+    bordo.chiave = k;
+    const a = c.rv * RAD;
+    if (bordo.ponte) bordo.ponte.rotation.y = -a;
+    bussola.position.set(POSTO.d * Math.sin(a), Scene.OCCHIO - POSTO.giu, -POSTO.d * Math.cos(a));
+    if (bordo.bussola) bordo.bussola.poni(c.rv, pr.V || 0);
+    return true;
+  }
+  function frameBordo(dt) {
+    let mosso = posaBordo();
+    if (bordo.bussola && !bordo.fermo && bordo.bussola.frame(dt)) mosso = true;
+    return mosso;
+  }
+  const versoBussola = () => {
+    const c = pr.caso || CASI[0];
+    return { target: new THREE.Vector3(0, Scene.OCCHIO, 0), theta: c.rv * RAD, phi: Math.PI / 2 + Math.atan2(POSTO.giu, POSTO.d), r: 34 };
+  };
+  // extra: l'ultimo figlio della radice è la controplancia, appena aggiunta da Scene.ponte
+  const ponte = Scene.ponte({ guarda: 90, phi: 1.45, frame: frameBordo, extra: (radice) => { bordo.ponte = radice.children[radice.children.length - 1]; radice.add(bussola); } });
   function mondo() {
     const m = ponte();
+    caricaBussola();
     if (!pr.pronto) {
       pr.pronto = true;
+      m.limiti = { ...m.limiti, phi1: 2.3 }; // si può guardare giù, fino alla bussola
       vai(CASI[0]);
       setTimeout(() => Motore.ridisegna(), 0);
       m.vistaIniziale = () => {
@@ -118,6 +157,9 @@
   function comandi(id) {
     const c = CASI.find((x) => `caso:${x.id}` === id);
     if (c) { vai(c); if (!vr()) Motore.vista(ponte().vistaIniziale()); }
+    if (id === 'guarda:bussola' && !vr()) Motore.vista(versoBussola());
+    if (id === 'guarda:sole' && !vr()) Motore.vista(ponte().vistaIniziale());
+    if (id === 'mare') bordo.fermo = !bordo.fermo;
     const passo = { 'min-': -60, 'min+': 60, 'sec-': -10, 'sec+': 10, 'dieci+': 600, 'dieci-': -600 }[id];
     if (passo) Cielo.imposta({ data: Cielo.stato.data + passo * 1000, corre: false });
     controlla();
@@ -150,6 +192,21 @@
           finestra(900, 'Sei in controplancia, all\'alba. Guarda il Sole.', 'Vai a grandezza vera per stare sul ponte.'),
           ...scala(),
           { t: 'nota', testo: 'Il Sole è calcolato per il giorno e il posto dell\'esempio del libro. Le letture delle bussole sono quelle del libro.' },
+        ],
+      },
+      {
+        passo: 0, mondo, azione: comandi,
+        sx: [
+          { t: 'titolo', testo: 'La bussola magnetica' },
+          { t: 'p', size: 34, testo: 'Il **mortaio**, con la rosa dentro, sta su una **sospensione cardanica**: due anelli con i perni ad angolo retto lo tengono quasi dritto mentre la nave rolla e beccheggia. Il metodo è di Girolamo Cardano, applicato alla bussola dal 1550. {{vol. 1, pp. 155–156}}' },
+          { t: 'p', size: 34, testo: 'La **rosa** resta orientata verso il Nord bussola; il mortaio è legato alla nave e le gira intorno. La **linea di fede**, sull\'asse longitudinale, segna sulla rosa la **prora bussola**. {{vol. 1, p. 156}}' },
+          { t: 'p', size: 34, testo: 'Con l\'astro sull\'orizzonte è nullo anche l\'errore dovuto all\'inclinazione del mortaio. {{p. 105}}' },
+          { t: 'bottoni', h: 80, size: 28, lista: [{ id: 'guarda:bussola', testo: 'Guarda la bussola' }, { id: 'guarda:sole', testo: 'Guarda il Sole' }, { id: 'mare', testo: bordo.fermo ? 'Rimetti il mare' : 'Ferma il mare', on: bordo.fermo }] },
+        ],
+        dx: [
+          finestra(900, 'Guarda giù, verso la prua: la base va con la nave, il mortaio resta dritto.', 'Vai a grandezza vera per stare sul ponte.'),
+          ...scala(),
+          { t: 'nota', testo: 'Modello 3D del prof. Daniele Palma Esposito. La rosa è girata della variazione data dalle letture del libro, V = a_v − a_b, con a_v calcolato dal motore: sotto la linea di fede leggi la prora bussola.' },
         ],
       },
       {

@@ -138,7 +138,9 @@
   const vr = () => Motore.presente();
   const scala = () => (vr() ? [{ t: 'bottoni', h: 80, size: 34, lista: [{ id: 'vr:scala', testo: Motore.scalaVera() ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []);
   const finestra = (h, vero, mini) => ({ t: 'zona', id: 'finestra', h, testo: !vr() ? '' : Motore.scalaVera() ? vero : mini });
-  const stelle = () => ({ t: 'bottoni', h: 76, size: 26, lista: visibili().map((n) => ({ id: `retta:${n}`, testo: nomeIt(n), on: !!pr.rette.find((r) => r.nome === n) })) });
+  // Sei bottoni in una fila sono troppo stretti per i nomi lunghi: due file da tre
+  const dueFile = (b) => { const m = Math.ceil(b.lista.length / 2); return b.lista.length > 4 ? [{ ...b, lista: b.lista.slice(0, m) }, { ...b, lista: b.lista.slice(m) }] : [b]; };
+  const stelle = () => dueFile({ t: 'bottoni', h: 76, size: 26, lista: visibili().map((n) => ({ id: `retta:${n}`, testo: nomeIt(n), on: !!pr.rette.find((r) => r.nome === n) })) });
   const RISPOSTE = { verso: 'Verso l\'astro', lontano: 'Lontano dall\'astro', dipende: 'Dipende dall\'azimut' };
 
   lez.registra(() => {
@@ -174,7 +176,7 @@
         sx: [
           ...(p ? [{ t: 'nota', testo: `La tua previsione: ${RISPOSTE[p]}.` }] : []),
           { t: 'sotto', testo: 'Stelle visibili, da Nord in senso orario' },
-          stelle(),
+          ...stelle(),
           { t: 'bottoni', h: 80, size: 32, lista: [{ id: 'fai-fix', testo: 'Cerca il FIX' }, { id: 'azzera', testo: 'Foglio pulito' }] },
           ...(pr.esito ? [{ t: 'esito', ...pr.esito }] : []),
           ...lez.missioni(),

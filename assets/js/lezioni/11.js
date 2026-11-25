@@ -127,7 +127,9 @@
   const vr = () => Motore.presente();
   const scala = () => (vr() ? [{ t: 'bottoni', h: 80, size: 34, lista: [{ id: 'vr:scala', testo: Motore.scalaVera() ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []);
   const finestra = (h, vero, mini) => ({ t: 'zona', id: 'finestra', h, testo: !vr() ? '' : Motore.scalaVera() ? vero : mini });
-  const stelle = () => ({ t: 'bottoni', h: 80, size: 30, lista: visibili().map((n) => ({ id: `cerchio:${n}`, testo: n === 'Procyon' ? 'Procione' : n, on: pr.scelte.includes(n) })) });
+  // Sei bottoni in una fila sono troppo stretti per i nomi lunghi: due file da tre
+  const dueFile = (b) => { const m = Math.ceil(b.lista.length / 2); return b.lista.length > 4 ? [{ ...b, lista: b.lista.slice(0, m) }, { ...b, lista: b.lista.slice(m) }] : [b]; };
+  const stelle = () => dueFile({ t: 'bottoni', h: 80, size: 30, lista: visibili().map((n) => ({ id: `cerchio:${n}`, testo: n === 'Procyon' ? 'Procione' : n, on: pr.scelte.includes(n) })) });
   function riquadro() {
     const righe = pr.scelte.map(cerchioDi).map((c) => `${c.nome === 'Procyon' ? 'Procione' : c.nome}: h ${Cielo.ang(c.h)}, raggio ${Cielo.ang(c.z)}, centro ${Cielo.ang(c.sub.lat, { segno: 'NS' })} ${Cielo.ang(c.sub.lon, { segno: 'EW', tre: true })}`);
     return { t: 'riquadro', size: 30, testo: `${Cielo.giorno()} ore ${Cielo.ora().slice(0, 5)} UTC · nave ${Cielo.luogo()}${righe.length ? ` · ${righe.join(' · ')}` : ''}` };
@@ -168,7 +170,7 @@
         sx: [
           ...(p ? [{ t: 'nota', testo: `La tua previsione: ${RISPOSTE[p]}.` }] : []),
           { t: 'sotto', testo: 'Stelle alte sull\'orizzonte, adesso' },
-          stelle(),
+          ...stelle(),
           ...(pr.punti.length ? [{ t: 'bottoni', h: 80, size: 32, lista: [{ id: 'punto:A', testo: 'Sono in A', on: pr.scelto === 0 }, { id: 'punto:B', testo: 'Sono in B', on: pr.scelto === 1 }, { id: 'azzera', testo: 'Ricomincia' }] }] : []),
           ...(pr.esito ? [{ t: 'esito', ...pr.esito }] : []),
           ...lez.missioni(),

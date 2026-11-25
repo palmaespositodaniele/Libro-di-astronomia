@@ -113,20 +113,6 @@ window.Motore = (function () {
   nastro.position.set(0.012, -PH / 2 - 0.04, Z - 0.003); nastro.rotation.z = -0.1;
   interno.add(dorso, capitello(1), capitello(-1), nastro, latoSx, latoDx);
 
-  // Linguette dei capitoli sul taglio destro: portano alla prima lezione pronta del capitolo
-  const linguette = Libro.CAPITOLI.map((cap, i) => {
-    const tex = Tavola.tela(96, 192, (c) => {
-      c.fillStyle = i % 2 ? '#C9A227' : '#0B2545'; c.fillRect(0, 0, 96, 192);
-      c.fillStyle = i % 2 ? '#0B2545' : '#E3C878'; c.font = '700 84px Bitter, Georgia, serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText(String(cap.n), 50, 98);
-    });
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.09), new THREE.MeshBasicMaterial({ map: tex }));
-    m.position.set(PW + 0.035, PH / 2 - 0.09 - i * 0.105, Z - 0.012);
-    m.userData.capitolo = cap;
-    latoDx.add(m);
-    return m;
-  });
-
   // Foglio che gira: due facce sulla stessa forma curva
   const SEG = 16;
   const geoFronte = new THREE.PlaneGeometry(PW, PH, SEG, 1); geoFronte.translate(PW / 2, 0, 0);
@@ -333,13 +319,6 @@ window.Motore = (function () {
     if (perno.visible && alzata < 0.1) {
       const a = rc.intersectObject(aletta)[0];
       if (a) return { id: 'aletta', punto: a.point, distanza: a.distance, aletta: true };
-    }
-    if (spread && !spread.chiuso) {
-      const t = rc.intersectObjects(linguette, false)[0];
-      if (t) {
-        const prima = t.object.userData.capitolo.lezioni.find((n) => Libro.PRONTE.includes(n));
-        return { id: prima ? `sez:${prima}:0` : 'sez:indice:0', punto: t.point, distanza: t.distance };
-      }
     }
     const h = rc.intersectObjects(latoSx.visible ? [paginaSx, paginaDx] : [paginaDx], false)[0];
     if (!h) return null;
@@ -632,7 +611,7 @@ window.Motore = (function () {
     const stretto = camera.aspect < 0.9;
     document.body.classList.toggle('stretto', stretto);
     const tan = Math.tan((camera.fov * Math.PI) / 360);
-    const largo = stretto ? PW + 0.03 : 2 * PW + 0.2;
+    const largo = stretto ? PW + 0.03 : 2 * PW + 0.1; // senza linguette ai lati basta la coperta
     // Intorno si vede il tavolo; in alto resta una striscia libera per il pulsante VR
     const d = Math.max((PH + 0.2) / (2 * tan), largo / (2 * tan * camera.aspect));
     const x = stretto ? (focus || 1) * (PW / 2) : 0;
@@ -786,7 +765,8 @@ window.Motore = (function () {
       rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0);
     }
     afferra = null; presaLibro = null;
-    stanza.visible = !vera;
+    stanza.visible = !vera && !mista;
+    if (renderer.xr.isPresenting) scene.background = sfondoVR(vera);
     sostegno.fascio.visible = modo === 'modello';
     // Accanto alla nave il libro si sposta di lato per non coprire la vista
     mettiLeggio(modo);
@@ -893,6 +873,10 @@ window.Motore = (function () {
   });
 
   const bVR = document.getElementById('entra-vr'); const avvisoVR = document.getElementById('avviso-vr');
+  // Realtà mista: come la VR, ma si vede l'aula vera intorno (passthrough). Il pulsante compare
+  // solo se il visore la offre; a grandezza vera l'aula sparisce e si torna alla VR piena
+  const bRM = document.getElementById('entra-rm');
+  let mista = false;
   function vrNo(m) { bVR.disabled = true; avvisoVR.textContent = m; }
   function preparaVR() {
     if (!navigator.xr) {
@@ -903,17 +887,23 @@ window.Motore = (function () {
       if (!si) vrNo('Nessun visore qui: apri il sito dal browser del visore.');
       else { bVR.disabled = false; avvisoVR.textContent = ''; }
     }).catch(() => vrNo('La VR non è disponibile su questo browser.'));
+    if (bRM) navigator.xr.isSessionSupported('immersive-ar').then((si) => { bRM.hidden = !si; }).catch(() => {});
   }
-  bVR.addEventListener('click', () => {
-    navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] }).then((s) => {
+  function entra(tipo) {
+    mista = tipo === 'immersive-ar';
+    navigator.xr.requestSession(tipo, { optionalFeatures: ['local-floor'] }).then((s) => {
       renderer.xr.setReferenceSpaceType('local-floor');
       return renderer.xr.setSession(s);
-    }).catch((e) => { avvisoVR.textContent = `VR non avviata: ${e.message}`; });
-  });
+    }).catch((e) => { mista = false; avvisoVR.textContent = `${tipo === 'immersive-ar' ? 'Realtà mista' : 'VR'} non avviata: ${e.message}`; });
+  }
+  bVR.addEventListener('click', () => entra('immersive-vr'));
+  if (bRM) bRM.addEventListener('click', () => entra('immersive-ar'));
+  // In realtà mista lo sfondo resta trasparente, tranne a grandezza vera
+  const sfondoVR = (vera) => (mista && !vera ? null : new THREE.Color(COL.carta));
 
   renderer.xr.addEventListener('sessionstart', () => {
     scene.remove(tavolo);
-    scene.background = new THREE.Color(COL.carta);
+    scene.background = sfondoVR(false);
     postazione.add(libro);
     interno.position.x = 0;
     leggio.modo = 'libro'; leggio.altezza = 1.05; vrScala = 'modello';
@@ -921,7 +911,7 @@ window.Motore = (function () {
     presaLibro = null; mettiLeggio('libro', -0.78);
     libro.position.copy(leggio.pos); libro.quaternion.copy(leggio.rot); libro.scale.setScalar(libroVR.scala);
     camera.position.set(0, 0, 0); camera.rotation.set(0, 0, 0);
-    stanza.visible = true; daCentrare = true;
+    stanza.visible = !mista; daCentrare = true;
     sostegno.tavola.visible = true; sostegnoLibro();
     ombre.forEach((o) => { o.visible = false; });
     finestra.visible = false;
@@ -929,6 +919,7 @@ window.Motore = (function () {
     impostaVR();
   });
   renderer.xr.addEventListener('sessionend', () => {
+    mista = false;
     scene.add(libro); scene.add(tavolo);
     if (mondo) mondoScena.add(mondo.radice);
     pedane.forEach((p) => { p.visible = false; }); pedane = [];

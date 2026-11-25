@@ -1,6 +1,7 @@
 /* Esperienza 7: il sestante (esperienza pilota). Contenuti da «Fondamenti di Navigazione e Meteorologia
-   nautica» vol. 2, cap. 4, pp. 63–67; esempio ed esercizi a pp. 75–76. Il modello è schematico:
-   le sue misure non sono dati e non compaiono mai in pagina. Regole in design.md */
+   nautica» vol. 2, cap. 4, pp. 63–67; esempio ed esercizi a pp. 75–76. Concetto e principio ottico usano
+   un modello schematico: le sue misure non sono dati e non compaiono mai in pagina. Nella prova c'è il
+   sestante vero (sestante3d.js), che segue la lettura. Regole in design.md */
 (function () {
   const N = 7;
   const { etichetta, maniglia, pedana } = Tavola;
@@ -311,6 +312,29 @@
   oculare.position.set(0, 0.17, -0.12); oculare.rotation.x = -0.35;
   inMano.add(sestanteMano, oculare);
 
+  /* Il sestante vero (sestante3d.js): sul ponte davanti agli occhi, e nel visore nella mano sinistra al posto
+     di quello schematico. Si carica alla prima visita della prova; finché non c'è, resta lo schematico */
+  const vero = { banco: null, mano: null, chiesto: false };
+  const banco = new THREE.Group(); banco.visible = false;
+  function caricaVero() {
+    if (vero.chiesto || !window.Sestante3D) return;
+    vero.chiesto = true;
+    Sestante3D.carica().then((nuovo) => {
+      vero.banco = nuovo(); banco.add(vero.banco.g); banco.visible = true;
+      vero.mano = nuovo();
+      // L'impugnatura del modello (dietro il telaio, sotto il perno) va nel pugno, come quella schematica
+      vero.mano.g.rotation.y = -Math.PI / 2; vero.mano.g.position.set(0.013, 0.05, -0.01);
+      inMano.add(vero.mano.g); sestanteMano.visible = false;
+      Motore.ridisegna();
+    }).catch(() => { /* senza modello resta il sestante schematico */ });
+  }
+  // Sul ponte: mezzo metro davanti agli occhi, verso il Sole, con il lembo rivolto a chi guarda
+  function posaBanco() {
+    const a = sole().a * RAD;
+    banco.position.set(0.45 * Math.sin(a), Scene.OCCHIO + 0.01, -0.45 * Math.cos(a));
+    banco.rotation.y = -a;
+  }
+
   const PASSO_MIN = -3000; const PASSO_MAX = 72000; // decimi di primo: da −5° a 120°
   function muovi(d) {
     pr.dec = Math.max(PASSO_MIN, Math.min(PASSO_MAX, pr.dec + d));
@@ -324,9 +348,12 @@
     inMano.visible = !!vera;
     if (vera) {
       inMano.matrix.copy(pr.ctrl.matrixWorld); inMano.matrixWorldNeedsUpdate = true;
-      posaSestanti(pr.dec / 600, pr.vetrini, [sestanteMano.userData.copia]);
+      if (vero.mano) vero.mano.poni(pr.dec / 600, pr.vetrini);
+      else posaSestanti(pr.dec / 600, pr.vetrini, [sestanteMano.userData.copia]);
     }
-    return false;
+    // Il sestante davanti agli occhi è per lo schermo: nel visore c'è quello in mano
+    banco.visible = !!vero.banco && !Motore.presente();
+    return !!vero.banco && vero.banco.poni(pr.dec / 600, pr.vetrini);
   }
   // Levetta destra: di lato gira il tamburo (più spinta, più veloce), avanti e indietro un grado alla volta
   function levaProva(f, ax, dt, c) {
@@ -338,7 +365,7 @@
     if (Math.abs(ax[1]) > 0.6 && !pr.scatto) { pr.scatto = true; muovi(-Math.sign(ax[1]) * 600); } else if (Math.abs(ax[1]) < 0.3) pr.scatto = false;
     return true;
   }
-  const ponteProva = Scene.ponte({ frame: framaProva, leva: levaProva, extra: (radice) => radice.add(inMano) });
+  const ponteProva = Scene.ponte({ frame: framaProva, leva: levaProva, extra: (radice) => radice.add(inMano, banco) });
   // Il Sole a 20° di altezza, la mattina del giorno scelto; se lì non ci arriva, al largo di Procida
   function preparaCielo() {
     let t = Cielo.oraColSole(20);
@@ -347,11 +374,14 @@
   }
   function mondoProva() {
     if (!pr.preparato) { pr.preparato = true; preparaCielo(); }
+    caricaVero();
     const m = ponteProva();
     if (!m.lente) {
       m.lente = () => texLente;
-      m.vistaIniziale = () => { const s = sole(); return { target: new THREE.Vector3(0, Scene.OCCHIO, 0), theta: s.a * RAD, phi: Math.max(0.4, (90 - s.h * 0.55) * RAD), r: 64 }; };
+      // Dagli occhi verso il Sole, un po' in basso: il sestante in primo piano, dietro l'orizzonte
+      m.vistaIniziale = () => { const s = sole(); return { target: new THREE.Vector3(0, Scene.OCCHIO, 0), theta: s.a * RAD, phi: 1.70, r: 32 }; };
     }
+    posaBanco();
     disegnaLente();
     return m;
   }
